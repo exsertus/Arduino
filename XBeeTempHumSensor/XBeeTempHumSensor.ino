@@ -75,9 +75,6 @@ void deepsleep(int waitTime) {
 
 void setup() {
   setup_watchdog(8);
-  
-  //ACSR |= _BV(ACD);                         //disable the analog comparator
-  //ADCSRA &= ~_BV(ADEN); 
 
   pinMode(LED,OUTPUT); 
   pinMode(SLEEP,OUTPUT);
@@ -93,6 +90,8 @@ void loop() {
   ADCSRA |= (1 << ADEN);  // Enable ADC 
   ADCSRA |= (1 << ADSC);  // Start A2D Conversions 
  
+  // Pause for 2 seconds to allow XBee to wake up and establish comms with the co-ordinator
+
   delay(2000);
   
   Vcc = readVcc();
@@ -102,14 +101,7 @@ void loop() {
   int temp = 0;
   int hum = 0;
   
-  // Pause for 2 seconds to allow XBee to wake up and establish comms with the co-ordinator
-        
-  // Read sensor until no errors are recieved
   errorCode = myDHT22.readData(); 
-  //while (errorCode != DHT_ERROR_NONE) {
-  //  errorCode = myDHT22.readData();
-  //  delay(50);
-  //} 
   
   hum = myDHT22.getHumidityInt();
   temp = myDHT22.getTemperatureCInt();
@@ -127,29 +119,25 @@ void loop() {
   // Send humidity
   sendData("Humidity",hum);
   
-  // Put XBee back to sleep, wait for 3 secs first to allow all remaining data to be sent
+  // Put XBee back to sleep, wait for 2 secs first to allow all remaining data to be sent
      
   delay(2000);
     
   digitalWrite(SLEEP,HIGH);
   digitalWrite(LED,LOW);
-     
-  // Pause for INTERVAL (60 seconds) before next reading
+
+  // Go into sleep mode until INTERVAL
   
   deepsleep(INTERVAL);
 }
 
-void sendData(char* dataset, int val) {  
-  XBee.print(dataset);
-  XBee.print(",");
-  XBee.print(val/10);
-  XBee.print(".");
-  XBee.print(val%10);
-  XBee.print(",");
-  XBee.print(Vcc);
-  XBee.print(",");
-  XBee.print(String(XBeeAddress));
-  XBee.print("\n");
+void sendData(char* dataset, int val) { 
+  String data = "";
+  data += String(dataset) + ",";
+  data += String(val/10) + String(val%10) + ","; 
+  data += String(Vcc) + ",";
+  data += String(XBeeAddress) + "\n";
+  XBee.print(data);
 }
 
 long readVcc() {
