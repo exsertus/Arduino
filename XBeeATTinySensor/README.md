@@ -34,12 +34,16 @@ vcc = current supply voltage of sensor (useful for monitoring battery life of re
 xbeeaddress = the lower half of the 64bit unique address. Allows for multiple datasets of the same name across different xbee sensors.
 
 Hardware
+
 The 2x Fritzing sketches are fully tested and are currently used to capture reads. These can be ordered directly via Fritzing.
 
+
 Credits
+
 Without these guys, neither the inspiration or solution would exist:
-Rob Fauldi; http://www.faludi.com and his wonderful 'Building Wireless Sensor Networks', http://www.amazon.co.uk/Robert-Faludi/e/B004JKWA3C
-Nathal Chantrell; http://nathan.chantrell.net who's done something very similar with nRF24L01 radios rather than XBee
-Pete Mills; http://petemills.blogspot.co.uk/2012/02/attiny-candle.html, power saving with ATTiny
-Suprising Edge; http://www.surprisingedge.com/low-power-atmegatiny-with-watchdog-timer/ more Attint power saving and watchdog stuff
-http://hacking.majenko.co.uk/making-accurate-adc-readings-on-arduino, reading the supply voltage
+
+* Rob Fauldi; http://www.faludi.com and his wonderful 'Building Wireless Sensor Networks', http://www.amazon.co.uk/Robert-Faludi/e/B004JKWA3C
+* Nathal Chantrell; http://nathan.chantrell.net who's done something very similar with nRF24L01 radios rather than XBee
+* Pete Mills; http://petemills.blogspot.co.uk/2012/02/attiny-candle.html, power saving with ATTiny
+* Suprising Edge; http://www.surprisingedge.com/low-power-atmegatiny-with-watchdog-timer/ more Attiny power saving and watchdog stuff
+* http://hacking.majenko.co.uk/making-accurate-adc-readings-on-arduino, reading the supply voltage
