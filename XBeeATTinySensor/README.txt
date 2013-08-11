@@ -33,6 +33,8 @@ value = the raw sensor value
 vcc = current supply voltage of sensor (useful for monitoring battery life of remote sensors)
 xbeeaddress = the lower half of the 64bit unique address. Allows for multiple datasets of the same name across different xbee sensors.
 
+Hardware
+The 2x Fritzing sketches are fully tested and are currently used to capture reads. These can be ordered directly via Fritzing.
 
 Credits
 Without these guys, neither the inspiration or solution would exist:
