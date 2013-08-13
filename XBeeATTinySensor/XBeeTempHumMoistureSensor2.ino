@@ -35,8 +35,8 @@
   #define RX 3
   #define SLEEP 1
   #define SENSPWR 0 
-  #define D1 2
-  #define A1 1
+  #define DIO1 2
+  #define AIO1 1
   
 #endif  
 
@@ -61,11 +61,8 @@ struct LogType {
 // Globals
 
 SoftwareSerial XBee (RX, TX);
-long Vcc = 0;
 String XBeeAddress = "";
 LogType logs[CACHESIZE*DATASETS];
-int logcount = 0;
-int offset = 0;
 DHT22 myDHT22(DIO1);
 
 ISR(WDT_vect) {
@@ -76,7 +73,7 @@ ISR(WDT_vect) {
 
 
 /*----------------------------------------------------------
-  Function : deepsleep
+  Function : setup_watchdog
   Inputs : None
   Return : None
   Globals : None
@@ -184,6 +181,9 @@ void setup() {
 ----------------------------------------------------------*/
 
 void loop() {
+  int logcount = 0;
+  int offset = 0;
+  
    /*
   
      Take sensor readings and store results in memory
@@ -198,44 +198,38 @@ void loop() {
 
    delay(2000);
       
-   Vcc = readVcc();
+   int Vcc = readVcc();
    DHT22_ERROR_t errorCode;
-   
-   int temp = 0;
-   int hum = 0;
    
    errorCode = myDHT22.readData(); 
    while (errorCode != DHT_ERROR_NONE) {
      errorCode = myDHT22.readData();
      delay(5);
    } 
-   
-   hum = myDHT22.getHumidityInt();
-   temp = myDHT22.getTemperatureCInt();
-  
-   // Disable ADC  
-   ACSR |= _BV(ACD);                         
-   ADCSRA &= ~_BV(ADEN);
 
    logs[logcount].dataset = 'T';
-   logs[logcount].val = temp;
+   logs[logcount].val = myDHT22.getTemperatureCInt();
    logs[logcount].vcc = Vcc;
    logs[logcount].offset = INTERVAL*(CACHESIZE-offset-1);
    logcount++;
    
    logs[logcount].dataset = 'H';
-   logs[logcount].val = hum;
+   logs[logcount].val = myDHT22.getHumidityInt();
    logs[logcount].vcc = Vcc;
    logs[logcount].offset = INTERVAL*(CACHESIZE-offset-1);
    logcount++;
 
    logs[logcount].dataset = 'M';
-   logs[logcount].val = analogRead(AIO2);
+   logs[logcount].val = analogRead(AIO2)*10;
    logs[logcount].vcc = Vcc;
    logs[logcount].offset = INTERVAL*(CACHESIZE-offset-1);
    logcount++;
    
    offset++;
+   
+   // Disable ADC  
+   ACSR |= _BV(ACD);                         
+   ADCSRA &= ~_BV(ADEN);
    
    digitalWrite(SENSPWR, LOW);
 
@@ -255,13 +249,9 @@ void loop() {
      for (int i=0; i<logcount; i++) {
        XBee.print(logs[i].dataset);
        XBee.print(",");
-       if (logs[i].dataset == 'M') {
-         XBee.print(logs[i].val);
-       } else {
-         XBee.print(logs[i].val/10);
-         XBee.print(".");
-         XBee.print(logs[i].val%10);
-       }
+       XBee.print(logs[i].val/10);
+       XBee.print(".");
+       XBee.print(logs[i].val%10);
        XBee.print(",");
        XBee.print(logs[i].vcc);
        XBee.print(",");
@@ -270,8 +260,7 @@ void loop() {
        XBee.print(logs[i].offset);
        XBee.print("\n");
        delay(500);
-       // clear down array item
-       logs[i] = (LogType){' ',0,0,0};
+
      } 
      
      logcount = 0;
