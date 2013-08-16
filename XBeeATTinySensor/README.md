@@ -15,6 +15,7 @@ Code variants incuded in this pack are:
 * Moisture, via a simple moisture sensor I bought of ebay. Its just uses standard analogRead, so 0-1023 values.
 * Temperature and Pressure, via a Sparkfun BMP05 sensor (I2C)
 * Temperature only, via a TMP36 sensor. Again, just using analogRead (using the internal 1.1v ref voltage)
+* EMON power (watts) sensor, using a current clamp (SCT-013-030) and a modified version of the EMON lib
 
 Xbee runs in transparent mode, with pin sleep enabled. Using the endpoint device firmware profile
 ATTiny uses sleep mode in-between sample intervals (set to 15min, but configurable via the INTERVAL constant).
