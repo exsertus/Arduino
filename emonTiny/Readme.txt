@@ -1,16 +1,5 @@
-                             _      _ _     
-                            | |    (_) |    
-   ___ _ __ ___   ___  _ __ | |     _| |__  
-  / _ \ '_ ` _ \ / _ \| '_ \| |    | | '_ \ 
- |  __/ | | | | | (_) | | | | |____| | |_) |
-  \___|_| |_| |_|\___/|_| |_|______|_|_.__/ 
+This is a small hack to the splendid emonlib (https://github.com/openenergymonitor/EmonLib) to cater for Attiny chipsets. 
 
-Arduino Energy Monitoring Library - compatible with Arduino 1.0 
-***********************************************
+Essentially, I've removed the serialPrint function as it uses hardware serial which isn't available on the Attiny.
 
-Designed for use with emonTx: http://www.openenergymonitor.org/emon/emontx
-
-Download to Arduino IDE 'libraries' folder. Restart of IDE required.
-
-Git Clone and Git Pull can be easily used to keep the library up-to-date and manage changes. JeeLabs has done a good post on the topic: http://jeelabs.org/2011/12/29/out-with-the-old-in-with-the-new/
-
+Working example of this in here https://github.com/exsertus/Arduino/tree/master/XBeeATTinySensor, called XBeeEMONSensor
