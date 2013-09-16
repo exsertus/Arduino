@@ -36,8 +36,8 @@
   #define RX 3
   #define SLEEP 1
   #define SENSPWR 0 
-  #define D1 2
-  #define A1 1
+  #define DIO1 2
+  #define AIO1 1
   
 #endif  
 
@@ -62,7 +62,6 @@ struct LogType {
 // Globals
 
 SoftwareSerial XBee (RX, TX);
-String XBeeAddress = "";
 LogType logs[CACHESIZE*DATASETS];
 tinyBMP085 bmp;
 
@@ -160,8 +159,6 @@ void setup() {
   pinMode(SLEEP,OUTPUT);  
     
   XBee.begin(9600);
-  
-  getXBeeAddress();
   setup_watchdog(8); 
 
 }
@@ -236,21 +233,24 @@ void loop() {
      // Iterate through log array and upload to server
          
      for (int i=0; i<logcount; i++) {
-       XBee.print(logs[i].dataset);
-       XBee.print(",");
-       XBee.print(logs[i].val/10);
-       XBee.print(".");
-       XBee.print(logs[i].val%10);
-       XBee.print(",");
-       XBee.print(logs[i].vcc);
-       XBee.print(",");
-       XBee.print(XBeeAddress);
-       XBee.print(",");
-       XBee.print(logs[i].offset);
-       XBee.print("\n");
-       delay(500);
+       String data = "";
+       
+       data += logs[i].dataset;
+       data += ",";
+       data += logs[i].val/10;
+       data += ".";
+       data += logs[i].val%10;
+       data += ",";
+       data += logs[i].vcc;
+       data += ",";
+       data += logs[i].offset;
+       data += "\n";
+       
+       XBee.print(data);
        
      } 
+     
+     XBee.print("\r");
      
      logcount = 0;
      offset = 0;
@@ -302,45 +302,4 @@ long readVcc() {
  
   result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
   return result; // Vcc in millivolts
-}
-
-
-/*----------------------------------------------------------
-
-  Function : getXBeeAddress
-  Inputs : None
-  Return : None
-  Globals : XBee, XBeeAddress
-  
-  Summary
-  Gets the low part of the XBee 64 bit address using the AT 
-  command mode persists XBeeAddress in global variable. 
-  Only called once during setup.
-  
-----------------------------------------------------------*/
-
-void getXBeeAddress() {
-  int inByte;
-  XBeeAddress = "";
-
-  digitalWrite(SLEEP,LOW); // wake up XBee
-  delay(1000);
-  
-  XBee.print("+++");
-  delay(2000);
-  XBee.flush();
-
-  XBee.print("ATSL\r");
-  delay(500);
-  while (XBee.available() > 0) {
-    inByte = XBee.read();
-    if (inByte != '\n' && inByte != '\r') XBeeAddress += (char)inByte;
-  }
-
-  XBee.print("ATCN\r");
-  XBee.flush();
-  delay(1000);
-  
-  digitalWrite(SLEEP,HIGH); // Put XBee back to sleep
-  
 }
