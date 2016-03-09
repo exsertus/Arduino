@@ -1,5 +1,5 @@
 /*============================================================
-  Name : XBeeEMONSensor
+  Name : XBeeTempHumMoistureSensor
   Author : exsertus.com (Steve Bowerman)
  
   Summary
@@ -15,7 +15,6 @@
 #include <avr/power.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
-#include <EmonTinyLib.h>
 
 // Setup 85 and 84 Specifics
 #if defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
@@ -40,10 +39,10 @@
   
 #endif  
 
-#define INTERVAL 60
-#define CACHESIZE 10
+#define INTERVAL 5//900
+#define CACHESIZE 1
 
-#define PRECISION 100 // 2 decimal places
+#define PRECISION 10 // 1 decimal place
 
 #ifndef cbi
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
@@ -53,7 +52,8 @@
 #endif
 
 struct LogType {
-  double power;
+  int temp;
+  int moist;
   int vcc;
   int offset;
 };
@@ -64,8 +64,6 @@ SoftwareSerial XBee (RX, TX);
 LogType logs[CACHESIZE];
 int logcount = 0;
 int offset = 0;
-  
-EnergyMonitor emon1;
 
 ISR(WDT_vect) {
   // Don't do anything here but we must include this
@@ -76,7 +74,7 @@ ISR(WDT_vect) {
 
 /*----------------------------------------------------------
   Function : setup_watchdog
-  Inputs : li
+  Inputs : None
   Return : None
   Globals : None
   
@@ -121,7 +119,7 @@ void setup_watchdog(int ii) {
 
 /*----------------------------------------------------------
   Function : deepsleep
-  Inputs : waitTime
+  Inputs : None
   Return : None
   Globals : None
   
@@ -163,7 +161,7 @@ void setup() {
   
   XBee.begin(9600);
   setup_watchdog(8); 
-
+ 
 }
 
 /*----------------------------------------------------------
@@ -193,59 +191,67 @@ void loop() {
    // Enable ADC
    ADCSRA |= (1 << ADEN); 
    ADCSRA |= (1 << ADSC); 
-  
-   delay(500);
-   emon1.current(AIO1, 60); // 30 for CT30 or 60 for CT60 based on current clamp calbration value
-   double w = emon1.calcIrms(1480);
-   while (w < 0) {
-     w = emon1.calcIrms(1480);
-   }
-   logs[logcount].power = w*230;
+     
+   analogReference(INTERNAL);
+   
+   double temp = analogRead(AIO3);
+   temp *= 1.07;
+   temp -= 500;
+   temp /= 10;
+   
+   logs[logcount].moist = analogRead(AIO2);
+   logs[logcount].temp = temp;
    logs[logcount].vcc = readVcc();
    logs[logcount].offset = INTERVAL*(CACHESIZE-offset-1);
    
-   logcount++;
+   logcount++;  
    offset++;
-
+   
    // Disable ADC  
    ACSR |= _BV(ACD);                         
    ADCSRA &= ~_BV(ADEN);
    
    digitalWrite(SENSPWR, LOW);
 
-
    /*
       Upload readings to server
    
    */
-   
+ 
    if (logcount >= CACHESIZE) {
+     
      // Wake up Xbee from sleep
      digitalWrite(SLEEP,LOW);
      delay(500);
-    
-     // Iterate through log array and upload to server
-         
-     for (int i=0; i<logcount; i++) {
+     
+     for (int i=0; i<logcount; i++) {    
        char data[20];
-       int I = (int)logs[i].power;
-       int D = (int)((logs[i].power-I)*PRECISION);
+       int I = 0;
+       int D = 0;
        
-       sprintf(data,"W,%d.%d,%d,%d\n", I, D, logs[i].vcc, logs[i].offset);
+       I = (int)logs[i].temp;
+       D = (int)abs((logs[i].temp-I)*PRECISION);
+       sprintf(data,"T,%d.%d,%d,%d\n", I, D, logs[i].vcc, logs[i].offset);
        XBee.print(data);
        delay(500);  
-     } 
+       
+       I = logs[i].moist;
+       sprintf(data,"M,%d,%d,%d\n", I, logs[i].vcc, logs[i].offset);
+       XBee.print(data);
+       delay(500);  
+    
+     }
      
      logcount = 0;
-     offset = 0; 
-   
+     offset = 0;
+     
      digitalWrite(SLEEP,HIGH);
   
-   }
-  
+   }  
+
    // Go back to sleep
    deepsleep(INTERVAL);
-
+  
 }
 
 

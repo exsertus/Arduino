@@ -1,5 +1,5 @@
 /*============================================================
-  Name : XBeeEMONSensor
+  Name : XBeeMoistureSensor
   Author : exsertus.com (Steve Bowerman)
  
   Summary
@@ -15,35 +15,27 @@
 #include <avr/power.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
-#include <EmonTinyLib.h>
 
 // Setup 85 and 84 Specifics
 #if defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
-  #define TX 7
-  #define RX 8
-  #define SLEEP 10
-  #define SENSPWR 9
-  #define DIO1 1
-  #define DIO2 2
-  #define DIO3 5
-  #define AIO1 1
-  #define AIO2 2
-  #define AIO3 5
-  
+  #define TX 4
+  #define RX 3
+  #define SLEEP 1
+  #define SENSPWR 0
+   
 #elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
   #define TX 4
   #define RX 3
   #define SLEEP 1
   #define SENSPWR 0 
-  #define DIO1 2
-  #define AIO1 1
+  #define D1 2
+  #define A1 1
   
 #endif  
 
-#define INTERVAL 60
-#define CACHESIZE 10
-
-#define PRECISION 100 // 2 decimal places
+#define INTERVAL 900
+#define CACHESIZE 1
+#define DATASETS 1
 
 #ifndef cbi
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
@@ -53,7 +45,8 @@
 #endif
 
 struct LogType {
-  double power;
+  char dataset;
+  int val;
   int vcc;
   int offset;
 };
@@ -61,11 +54,10 @@ struct LogType {
 // Globals
 
 SoftwareSerial XBee (RX, TX);
-LogType logs[CACHESIZE];
+String XBeeAddress = "";
+LogType logs[CACHESIZE*DATASETS];  
 int logcount = 0;
 int offset = 0;
-  
-EnergyMonitor emon1;
 
 ISR(WDT_vect) {
   // Don't do anything here but we must include this
@@ -75,8 +67,8 @@ ISR(WDT_vect) {
 
 
 /*----------------------------------------------------------
-  Function : setup_watchdog
-  Inputs : li
+  Function : deepsleep
+  Inputs : None
   Return : None
   Globals : None
   
@@ -121,7 +113,7 @@ void setup_watchdog(int ii) {
 
 /*----------------------------------------------------------
   Function : deepsleep
-  Inputs : waitTime
+  Inputs : None
   Return : None
   Globals : None
   
@@ -147,7 +139,7 @@ void deepsleep(int waitTime) {
   Function : setup
   Inputs : None
   Return : None
-  Globals : Vcc, XBee, SLEEP, SENSPWR
+  Globals : XBee, SLEEP, SENSPWR
   
   Summary
   Sets up program, called once when the circuit is powered up.
@@ -159,11 +151,12 @@ void deepsleep(int waitTime) {
 void setup() {  
   pinMode(SENSPWR,OUTPUT); 
   pinMode(SLEEP,OUTPUT);  
-  digitalWrite(SLEEP,HIGH);
-  
+    
   XBee.begin(9600);
-  setup_watchdog(8); 
 
+  getXBeeAddress();
+  setup_watchdog(8); 
+  
 }
 
 /*----------------------------------------------------------
@@ -171,7 +164,7 @@ void setup() {
   Function : loop
   Inputs : None
   Return : None
-  Globals : Vcc, XBee, XBeeAddress, INTERVAL, SENSPWR, SLEEP
+  Globals : XBee, XBeeAddress, INTERVAL, SENSPWR, SLEEP
   
   Summary
   Main loop routine. Wakes up Xbee, takes reading, sends 
@@ -193,24 +186,21 @@ void loop() {
    // Enable ADC
    ADCSRA |= (1 << ADEN); 
    ADCSRA |= (1 << ADSC); 
-  
-   delay(500);
-   emon1.current(AIO1, 60); // 30 for CT30 or 60 for CT60 based on current clamp calbration value
-   double w = emon1.calcIrms(1480);
-   while (w < 0) {
-     w = emon1.calcIrms(1480);
-   }
-   logs[logcount].power = w*230;
+
+   delay(2000);
+    
+   logs[logcount].dataset = 'M';
+   logs[logcount].val = analogRead(A1);
    logs[logcount].vcc = readVcc();
    logs[logcount].offset = INTERVAL*(CACHESIZE-offset-1);
-   
    logcount++;
+   
    offset++;
-
+   
    // Disable ADC  
    ACSR |= _BV(ACD);                         
    ADCSRA &= ~_BV(ADEN);
-   
+
    digitalWrite(SENSPWR, LOW);
 
 
@@ -219,25 +209,34 @@ void loop() {
    
    */
    
-   if (logcount >= CACHESIZE) {
+   if (logcount >= (DATASETS*CACHESIZE)) {
      // Wake up Xbee from sleep
      digitalWrite(SLEEP,LOW);
-     delay(500);
-    
+     delay(1000);
+     
      // Iterate through log array and upload to server
          
      for (int i=0; i<logcount; i++) {
-       char data[20];
-       int I = (int)logs[i].power;
-       int D = (int)((logs[i].power-I)*PRECISION);
-       
-       sprintf(data,"W,%d.%d,%d,%d\n", I, D, logs[i].vcc, logs[i].offset);
-       XBee.print(data);
-       delay(500);  
+       XBee.print(logs[i].dataset);
+       XBee.print(",");
+       XBee.print(logs[i].val);
+       XBee.print(",");
+       XBee.print(logs[i].vcc);
+       XBee.print(",");
+       XBee.print(XBeeAddress);
+       XBee.print(",");
+       XBee.print(logs[i].offset);
+       XBee.print("\n");
+       delay(500);
+       // clear down array item
+       logs[i] = (LogType){' ',0,0,0};
      } 
      
      logcount = 0;
-     offset = 0; 
+     offset = 0;
+     
+     // Put XBee back to sleep, wait first to allow all remaining data to be sent
+     delay(500);   
    
      digitalWrite(SLEEP,HIGH);
   
@@ -245,7 +244,7 @@ void loop() {
   
    // Go back to sleep
    deepsleep(INTERVAL);
-
+  
 }
 
 
@@ -283,4 +282,45 @@ long readVcc() {
  
   result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
   return result; // Vcc in millivolts
+}
+
+
+/*----------------------------------------------------------
+
+  Function : getXBeeAddress
+  Inputs : None
+  Return : None
+  Globals : XBee, XBeeAddress
+  
+  Summary
+  Gets the low part of the XBee 64 bit address using the AT 
+  command mode persists XBeeAddress in global variable. 
+  Only called once during setup.
+  
+----------------------------------------------------------*/
+
+void getXBeeAddress() {
+  int inByte;
+  XBeeAddress = "";
+
+  digitalWrite(SLEEP,LOW); // wake up XBee
+  delay(1000);
+  
+  XBee.print("+++");
+  delay(2000);
+  XBee.flush();
+
+  XBee.print("ATSL\r");
+  delay(500);
+  while (XBee.available() > 0) {
+    inByte = XBee.read();
+    if (inByte != '\n' && inByte != '\r') XBeeAddress += (char)inByte;
+  }
+
+  XBee.print("ATCN\r");
+  XBee.flush();
+  delay(1000);
+  
+  digitalWrite(SLEEP,HIGH); // Put XBee back to sleep
+  
 }
